@@ -1,0 +1,154 @@
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+import csv
+import time
+from string import Template
+import os
+
+class EmailAutomation:
+    def __init__(self, smtp_server="smtp.gmail.com", smtp_port=587):
+        """
+        Initialize the email automation system for grader position inquiries
+        """
+        self.smtp_server = smtp_server
+        self.smtp_port = smtp_port
+        self.sender_email = None
+        self.sender_password = None
+        
+    def login(self, email, password):
+        """
+        Set up login credentials for the email account
+        """
+        self.sender_email = email
+        self.sender_password = password
+        
+    def read_professors_data(self, csv_file):
+        """
+        Read professor information from CSV file
+        """
+        professors = []
+        with open(csv_file, 'r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                professors.append(row)
+        return professors
+    
+    def create_personalized_message(self, template, professor_data):
+        """
+        Create personalized message for each professor
+        """
+        template = Template(template)
+        return template.safe_substitute(professor_data)
+    
+    def send_email(self, professor_email, subject, message, resume_path):
+        """
+        Send a single email with resume attachment
+        """
+        msg = MIMEMultipart()
+        msg['From'] = self.sender_email
+        msg['To'] = professor_email
+        msg['Subject'] = subject
+        
+        # Add message body
+        msg.attach(MIMEText(message, 'plain'))
+        
+        # Attach resume
+        if resume_path and os.path.exists(resume_path):
+            with open(resume_path, 'rb') as file:
+                resume = MIMEApplication(file.read(), _subtype='pdf')
+                resume.add_header('Content-Disposition', 'attachment', 
+                                filename=os.path.basename(resume_path))
+                msg.attach(resume)
+        
+        try:
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.sender_email, self.sender_password)
+                server.send_message(msg)
+                return True
+        except Exception as e:
+            print(f"Error sending email to {professor_email}: {str(e)}")
+            return False
+    
+    def send_inquiry_emails(self, template_path, professors_csv, resume_path, subject, delay=2):
+        """
+        Send grader position inquiry emails to multiple professors
+        """
+        try:
+            # Read email template
+            with open(template_path, 'r', encoding='utf-8') as file:
+                template = file.read()
+                
+            # Read professor data
+            professors = self.read_professors_data(professors_csv)
+            
+            successful = 0
+            failed = 0
+            
+            print("\nStarting to send emails...")
+            print(f"Using template file: {template_path}")
+            print(f"Using professors CSV: {professors_csv}")
+            print(f"Using resume file: {resume_path}")
+            
+            for professor in professors:
+                # Create personalized message
+                message = self.create_personalized_message(template, professor)
+                
+                print(f"\nSending email to Prof. {professor['professor_name']}...")
+                
+                # Send email
+                if self.send_email(professor['email'], subject, message, resume_path):
+                    successful += 1
+                    print(f"✓ Successfully sent email to Prof. {professor['professor_name']}")
+                else:
+                    failed += 1
+                    print(f"✗ Failed to send email to Prof. {professor['professor_name']}")
+                    
+                # Add delay between emails
+                time.sleep(delay)
+            
+            return successful, failed
+            
+        except FileNotFoundError as e:
+            print(f"\nError: Could not find file: {str(e)}")
+            print("Please check if all required files exist in the correct location:")
+            print(f"- Template file: {template_path}")
+            print(f"- Professors CSV: {professors_csv}")
+            print(f"- Resume file: {resume_path}")
+            return 0, 0
+        except Exception as e:
+            print(f"\nAn error occurred: {str(e)}")
+            return 0, 0
+
+# Example usage
+if __name__ == "__main__":
+    # Get the current directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Define file paths relative to the current directory
+    template_path = os.path.join(current_dir, "email_template.txt")
+    professors_csv = os.path.join(current_dir, "email_list.csv")
+    resume_path = os.path.join(current_dir, "Your_Resume.pdf")
+    
+    # Initialize the automation system
+    email_system = EmailAutomation()
+    
+    #Edit the following code
+    #Your code in xxxx xxxx xxxx xxxx format
+    # Your email credentials
+    email_system.login("yourname@email.com", "xxxx xxxx xxxx xxxx")
+    
+    # Send inquiry emails
+    successful, failed = email_system.send_inquiry_emails(
+        template_path=template_path,
+        professors_csv=professors_csv,
+        resume_path=resume_path,
+        subject="Inquiry About Position",
+        delay=2  # 2 seconds delay between emails
+    )
+    
+    print("\nSummary:")
+    print(f"Emails sent successfully: {successful}")
+    print(f"Failed emails: {failed}")

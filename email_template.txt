@@ -1,0 +1,13 @@
+Hello Prof. ${professor_name},
+
+Hope you are doing well.  ${course_name} 
+
+Type your content here!!
+
+${course_topic}
+
+
+Thank you very much for your time. 
+
+Best,
+${student_name}
